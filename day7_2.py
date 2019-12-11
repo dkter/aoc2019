@@ -9,13 +9,6 @@ class ParamMode(Enum):
     IMMEDIATE = 1
 
 
-def resolve(mem: List[int], val: Tuple[ParamMode, int]) -> int:
-    if val[0] == ParamMode.POSITION:
-        return mem[val[1]]
-    else:
-        return val[1]
-
-
 @dataclass
 class Operation:
     name: str
@@ -24,61 +17,59 @@ class Operation:
     do_thing: Callable
 
 
-def _op_add(self, mem, stdin, a, b, c):
+def _op_add(self, state, a, b, c):
     c = c[1]
-    a, b = resolve(mem, a), resolve(mem, b)
-    mem[c] = a + b
-    return (mem, stdin), -1
+    a, b = state.resolve(a), state.resolve(b)
+    state.mem[c] = a + b
+    return ()
 
-def _op_mul(self, mem, stdin, a, b, c):
+def _op_mul(self, state, a, b, c):
     c = c[1]
-    a, b = resolve(mem, a), resolve(mem, b)
-    mem[c] = a * b
-    return (mem, stdin), -1
+    a, b = state.resolve(a), state.resolve(b)
+    state.mem[c] = a * b
+    return ()
 
-def _op_put(self, mem, stdin, a):
+def _op_put(self, state, a):
     a = a[1]
-    mem[a] = stdin.pop(0)
-    return (mem, stdin), -1
+    state.mem[a] = state.stdin.pop(0)
+    return ()
 
-def _op_get(self, mem, stdin, a):
-    a = resolve(mem, a)
-    return (mem, stdin), -1, a
+def _op_get(self, state, a):
+    a = state.resolve(a)
+    return (a,)
 
-def _op_jit(self, mem, stdin, a, b):
-    a, b = resolve(mem, a), resolve(mem, b)
-    ptr = -1
+def _op_jit(self, state, a, b):
+    a, b = state.resolve(a), state.resolve(b)
     if a:
-        ptr = b
-    return (mem, stdin), ptr
+        state.ptr = b
+    return ()
 
-def _op_jif(self, mem, stdin, a, b):
-    a, b = resolve(mem, a), resolve(mem, b)
-    ptr = -1
+def _op_jif(self, state, a, b):
+    a, b = state.resolve(a), state.resolve(b)
     if not a:
-        ptr = b
-    return (mem, stdin), ptr
+        state.ptr = b
+    return ()
 
-def _op_qlt(self, mem, stdin, a, b, c):
-    a, b = resolve(mem, a), resolve(mem, b)
+def _op_qlt(self, state, a, b, c):
+    a, b = state.resolve(a), state.resolve(b)
     c = c[1]
     if a < b:
-        mem[c] = 1
+        state.mem[c] = 1
     else:
-        mem[c] = 0
-    return (mem, stdin), -1
+        state.mem[c] = 0
+    return ()
 
-def _op_qeq(self, mem, stdin, a, b, c):
-    a, b = resolve(mem, a), resolve(mem, b)
+def _op_qeq(self, state, a, b, c):
+    a, b = state.resolve(a), state.resolve(b)
     c = c[1]
     if a == b:
-        mem[c] = 1
+        state.mem[c] = 1
     else:
-        mem[c] = 0
-    return (mem, stdin), -1
+        state.mem[c] = 0
+    return ()
 
-def _op_die(self, mem, stdin):
-    return (mem, stdin), -1
+def _op_die(self, state):
+    return ()
 
 
 class Instruction:
@@ -106,9 +97,9 @@ class Instruction:
         return cls(op, param_modes, params[:op.nargs])
 
 
-    def do_thing(self, mem, stdin):
+    def do_thing(self, state):
         params = list(zip_longest(self.param_modes, self.params, fillvalue=ParamMode.POSITION))
-        return self.operation.do_thing(self.operation, mem, stdin, *params)
+        return self.operation.do_thing(self.operation, state, *params)
 
 operations = {
     1: Operation("add", 1, 3, _op_add),
@@ -130,9 +121,18 @@ class Amp:
             self.mem = [int(i) for i in code.split(",")]
         self.ptr = 0
 
+
+    def resolve(self, val: Tuple[ParamMode, int]) -> int:
+        if val[0] == ParamMode.POSITION:
+            return self.mem[val[1]]
+        else:
+            return val[1]
+
+
     def run(self, stdin):
         op = None
         output = []
+        self.stdin = stdin
         while op != operations[99]:
             instr = Instruction.from_string(str(self.mem[self.ptr]), params=self.mem[self.ptr+1:])
             op = instr.operation
@@ -140,13 +140,12 @@ class Amp:
             if op.name == "die":
                 return None
             self.ptr += op.nargs + 1
-            (self.mem, stdin), ptr, *out = instr.do_thing(self.mem, stdin)
-            if ptr != -1:
-                self.ptr = ptr
+            out = instr.do_thing(self)
 
             if out:
                 return out
         return None
+
 
 max_signal = 0
 done = False
