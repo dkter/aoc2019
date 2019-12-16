@@ -168,40 +168,6 @@ class Computer:
             output.extend(out)
         return output
 
-
-
-def rotate(orientation: str, turn_direction: int) -> str:
-    if turn_direction == 0:
-        # rotate CCW
-        if orientation == "U": return "L"
-        if orientation == "L": return "D"
-        if orientation == "D": return "R"
-        if orientation == "R": return "U"
-    elif turn_direction == 1:
-        # rotate CW
-        if orientation == "U": return "R"
-        if orientation == "R": return "D"
-        if orientation == "D": return "L"
-        if orientation == "L": return "U"
-
-
-def move(position: Tuple[int, int], direction: str) -> Tuple[int, int]:
-    if direction == "U": return position[0], position[1] + 1
-    if direction == "D": return position[0], position[1] - 1
-    if direction == "L": return position[0] - 1, position[1]
-    if direction == "R": return position[0] + 1, position[1]
-
-
-white_panels: List[Tuple[int, int]] = []
-painted_panels: Set[Tuple[int, int]] = set()
-position = (0, 0)
-direction = "U"
-
-min_x = 0
-max_x = 0
-min_y = 0
-max_y = 0
-
 with open("day13_code.txt") as f:
     text = f.read()
     code = {index: int(instr) for index, instr in enumerate(text.split(","))}
