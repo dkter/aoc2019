@@ -168,6 +168,7 @@ class Computer:
             output.extend(out)
         return output
 
+
 with open("day13_code.txt") as f:
     text = f.read()
     code = {index: int(instr) for index, instr in enumerate(text.split(","))}
